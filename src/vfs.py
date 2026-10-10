@@ -74,3 +74,39 @@ def get_motd(vfs):
     if node is None or node["__dir"]:
         return None
     return node["data"].decode("utf-8", errors="replace")
+
+
+def resolve(cwd, path):
+    if path.startswith("/"):
+        raw = path
+    else:
+        if cwd == "/":
+            raw = "/" + path
+        else:
+            raw = cwd + "/" + path
+    parts = []
+    for seg in raw.split("/"):
+        if not seg or seg == ".":
+            continue
+        if seg == "..":
+            if parts:
+                parts.pop()
+        else:
+            parts.append(seg)
+    if not parts:
+        return "/"
+    return "/" + "/".join(parts)
+
+
+def get_node(vfs, abspath):
+    if abspath == "/":
+        return vfs
+    cur = vfs
+    for part in [p for p in abspath.split("/") if p]:
+        if not cur["__dir"]:
+            return None
+        nxt = cur["children"].get(part)
+        if nxt is None:
+            return None
+        cur = nxt
+    return cur

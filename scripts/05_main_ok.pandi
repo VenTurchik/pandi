@@ -1,0 +1,14 @@
+ls
+ls /a
+ls /a/b
+ls /a/b/c/file.txt
+cd /a
+ls
+cd b/c
+ls
+cd /
+cd /a/b/../b/c
+ls .
+date
+history
+exit

@@ -1,0 +1,4 @@
+ls
+cd /a/b/c/file.txt
+ls
+exit

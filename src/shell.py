@@ -11,6 +11,8 @@ class Pandi:
         self._vfs_path = vfs_path
         self._script_path = script_path
         self._vfs = None
+        self._cwd = "/"
+        self._history = []
         self._is_enable = False
 
     def start(self):
@@ -75,7 +77,10 @@ class Pandi:
         handler = REGISTRY.get(cmd)
         if handler is None:
             raise CommandError(f"{cmd}: command not found")
-        return handler(args)
+        try:
+            return handler(args, self)
+        except TypeError:
+            return handler(args)
 
     def command_manager(self, tokens):
         return self._command_manager(tokens)
@@ -117,6 +122,7 @@ class Pandi:
                 continue
 
             tokens = self.parser(raw)
+            self._history.append(raw.strip())
 
             if tokens[0] == "exit":
                 self.stop()

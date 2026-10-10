@@ -1,0 +1,4 @@
+ls
+cd /nope
+ls
+exit

@@ -19,6 +19,7 @@ def run_script(shell, path):
         shell.output(f"{shell.prompt()}{stripped}")
 
         tokens = shell.parser(stripped)
+        shell._history.append(stripped)
 
         if tokens[0] == "exit":
             shell.stop()
