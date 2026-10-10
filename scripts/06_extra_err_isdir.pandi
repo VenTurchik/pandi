@@ -1,0 +1,4 @@
+ls
+cp /a /copy
+ls
+exit

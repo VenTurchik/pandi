@@ -1,0 +1,4 @@
+ls
+cp /nope /copy.txt
+ls
+exit

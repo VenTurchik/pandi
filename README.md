@@ -12,6 +12,7 @@
 - [Этап 2. Конфигурация](#этап-2-конфигурация)
 - [Этап 3. VFS](#этап-3-vfs-виртуальная-файловая-система)
 - [Этап 4. Основные команды](#этап-4-основные-команды)
+- [Этап 5. Дополнительные команды](#этап-5-дополнительные-команды)
 - [Тесты](#тесты)
 
 ## Общее описание
@@ -493,6 +494,112 @@ bash scenarios/demo_stage4.sh
     └── test_stage4.py            # НОВЫЙ: тесты ls/cd/date/history, resolve/get_node
 ```
 
+## Этап 5. Дополнительные команды
+
+Завершающий этап: команды, изменяющие состояние VFS только в
+памяти, и справка по всем командам.
+
+### Что добавлено
+
+- Команда `cp` — копирование файлов внутри VFS (без `extract`).
+  Все модификации только в памяти.
+- Команда `help` — список всех команд с описанием.
+
+| Команда | Поведение |
+|---------|-----------|
+| `cp <src> <dst>` | Копирует файл. Если `dst` — существующая директория, копирует внутрь неё с исходным именем. Перезаписывает файл. Ошибки: `missing file operand`, `extra operand`, `cannot stat '...': No such file or directory`, `-r not specified; omitting directory '...'`, `cannot create '...': No such file or directory`. |
+| `help` | Выводит список команд с описанием (отсортирован по имени). |
+
+### Стартовые скрипты этапа 5
+
+- [scripts/06_extra_ok.pandi](scripts/06_extra_ok.pandi) — успешное копирование, `help`, `history`.
+- [scripts/06_extra_err_nosrc.pandi](scripts/06_extra_err_nosrc.pandi) — нет источника.
+- [scripts/06_extra_err_isdir.pandi](scripts/06_extra_err_isdir.pandi) — копирование директории без `-r`.
+
+Готовый сценарий демонстрации: [scenarios/demo_stage5.sh](scenarios/demo_stage5.sh).
+
+### Примеры запуска
+
+```bash
+# Успешный прогон
+./run.sh --vfs vfs/deep.zip --script scripts/06_extra_ok.pandi
+
+# Ошибка: нет источника
+./run.sh --vfs vfs/deep.zip --script scripts/06_extra_err_nosrc.pandi
+
+# Полная демонстрация
+bash scenarios/demo_stage5.sh
+```
+
+### Структура проекта (на данном этапе)
+
+```text
+.
+├── run.sh                        # скрипт запуска
+├── requirements.txt              # зависимости (pytest)
+├── pytest.ini                    # конфигурация pytest
+├── README.md                     # описание проекта
+├── .gitignore
+├── src/
+│   ├── main.py                   # точка входа, реэкспорт Pandi/build_arg_parser
+│   ├── cli.py                    # build_arg_parser (argparse)
+│   ├── shell.py                  # класс Pandi: _cwd, _history
+│   ├── script.py                 # run_script (стартовый скрипт) + _history
+│   ├── vfs.py                    # VfsError, load_vfs, get_motd, resolve, get_node
+│   └── commands/
+│       ├── __init__.py           # реестр команд REGISTRY
+│       ├── errors.py             # CommandError
+│       ├── cmd_ls.py             # ls по VFS
+│       ├── cmd_cd.py             # cd по VFS
+│       ├── cmd_cp.py             # НОВЫЙ: cp
+│       ├── cmd_date.py           # date
+│       ├── cmd_help.py           # НОВЫЙ: help
+│       └── cmd_history.py        # history
+├── tools/
+│   └── make_vfs.py               # генератор ZIP-архивов
+├── vfs/                          # VFS-архивы
+│   ├── minimal.zip               # минимальный VFS (1 файл)
+│   ├── few.zip                   # несколько файлов + папка
+│   ├── deep.zip                  # глубокий VFS (>=3 уровня) + motd
+│   └── motd.zip                  # VFS с приветствием motd
+├── scripts/                      # стартовые скрипты эмулятора
+│   ├── 01_ok.pandi               # все команды успешно
+│   ├── 02_error.pandi            # остановка на ошибке
+│   ├── 03_comments.pandi         # комментарии и пустые строки
+│   ├── 04_vfs_ok.pandi           # все команды с VFS успешно
+│   ├── 04_vfs_error.pandi        # ошибка с VFS
+│   ├── 05_main_ok.pandi          # все команды этапа 4 с VFS успешно
+│   ├── 05_main_err_nopath.pandi  # cd в несуществующий путь
+│   ├── 05_main_err_notdir.pandi  # cd в файл (Not a directory)
+│   ├── 06_extra_ok.pandi         # НОВЫЙ: cp + help успешно
+│   ├── 06_extra_err_nosrc.pandi  # НОВЫЙ: нет источника cp
+│   └── 06_extra_err_isdir.pandi  # НОВЫЙ: cp директории без -r
+├── scenarios/                    # сценарии запуска
+│   ├── demo_no_args.sh           # без параметров — обычный REPL
+│   ├── demo_vfs_only.sh          # только --vfs
+│   ├── demo_script_only.sh       # только --script
+│   ├── demo_both.sh              # --vfs и --script одновременно
+│   ├── demo_script_error.sh      # скрипт с ошибкой
+│   ├── demo_script_notfound.sh   # несуществующий скрипт
+│   ├── vfs_minimal.sh            # минимальный VFS
+│   ├── vfs_few.sh                # несколько файлов
+│   ├── vfs_deep.sh               # глубокий VFS
+│   ├── vfs_motd.sh               # проверка motd
+│   ├── vfs_notfound.sh           # VFS не найден
+│   ├── vfs_bad.sh                # битый ZIP-архив
+│   ├── demo_stage4.sh            # демонстрация ls/cd/date/history
+│   └── demo_stage5.sh            # НОВЫЙ: демонстрация cp/help
+└── tests/
+    ├── test_commands.py          # тесты функций команд
+    ├── test_parser.py            # тесты парсера
+    ├── test_manager.py           # тесты диспетчера команд
+    ├── test_config.py            # тесты argparse и отладочного вывода
+    ├── test_script.py            # тесты выполнения скриптов
+    ├── test_vfs.py               # тесты VFS (этап 3)
+    ├── test_stage4.py            # тесты ls/cd/date/history, resolve/get_node
+    └── test_stage5.py            # НОВЫЙ: тесты cp/help
+```
+
 ## Тесты
 
 ### Запуск тестов
@@ -500,4 +607,4 @@ bash scenarios/demo_stage4.sh
 pytest -v
 ```
 
-Ожидается 63 пройденных теста (этапы 1, 2, 3 и 4 вместе).
+Ожидается 77 пройденных тестов (этапы 1-5 вместе).

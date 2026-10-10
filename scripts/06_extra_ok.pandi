@@ -1,0 +1,11 @@
+ls
+cp a/top.txt copy.txt
+ls
+cp copy.txt a/b/
+ls a/b
+cp a/b/other.txt a/b/c/new.txt
+ls a/b/c
+help
+date
+history
+exit
