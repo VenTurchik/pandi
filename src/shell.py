@@ -10,10 +10,15 @@ class Pandi:
         self._hostname = platform.node()
         self._vfs_path = vfs_path
         self._script_path = script_path
+        self._vfs = None
         self._is_enable = False
 
     def start(self):
         self._debug_dump_config()
+        if not self._load_vfs():
+            self.output("Session terminated.")
+            return 1
+        self._print_motd()
         self._is_enable = True
         try:
             if self._script_path is not None:
@@ -42,6 +47,28 @@ class Pandi:
         self.output(f"[pandi] username    = {self._username!r}")
         self.output(f"[pandi] hostname    = {self._hostname!r}")
         self.output("[pandi] -------------------------------")
+
+    def _load_vfs(self):
+        if self._vfs_path is None:
+            return True
+        try:
+            from vfs import load_vfs
+
+            self._vfs = load_vfs(self._vfs_path)
+        except Exception as exc:
+            self.output(str(exc))
+            return False
+        return True
+
+    def _print_motd(self):
+        if self._vfs is None:
+            return
+        from vfs import get_motd
+
+        motd = get_motd(self._vfs)
+        if motd is not None:
+            for line in motd.splitlines():
+                self.output(line)
 
     def _command_manager(self, tokens):
         cmd, *args = tokens

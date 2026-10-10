@@ -99,13 +99,18 @@ def test_run_script_not_found(capsys):
 
 
 def test_main_with_script(monkeypatch, capsys, tmp_path):
+    import zipfile
+
+    vfs = tmp_path / "v.zip"
+    with zipfile.ZipFile(vfs, "w") as zf:
+        zf.writestr("hello.txt", "hi\n")
     script = tmp_path / "ok.pandi"
     script.write_text("ls\nexit\n", encoding="utf-8")
-    rc = main(["--vfs", "/tmp/a.zip", "--script", str(script)])
+    rc = main(["--vfs", str(vfs), "--script", str(script)])
     out = capsys.readouterr().out
     assert rc == 0
     assert "vfs_path" in out
-    assert "/tmp/a.zip" in out
+    assert str(vfs) in out
     assert "ok.pandi" in out
 
 

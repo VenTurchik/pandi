@@ -1,0 +1,7 @@
+ls
+ls -la /home
+cd
+cd /tmp
+ls
+cd /var
+exit

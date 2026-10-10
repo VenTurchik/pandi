@@ -10,6 +10,7 @@
 - [Установка и запуск](#установка-и-запуск)
 - [Этап 1. REPL](#этап-1-repl)
 - [Этап 2. Конфигурация](#этап-2-конфигурация)
+- [Этап 3. VFS](#этап-3-vfs-виртуальная-файловая-система)
 - [Тесты](#тесты)
 
 ## Общее описание
@@ -164,7 +165,7 @@ Session terminated.
 ├── scenarios/                    # сценарии запуска
 │   ├── demo_no_args.sh           # без параметров — обычный REPL
 │   ├── demo_vfs_only.sh          # только --vfs
-│   ├── demo_script_only.sh      # только --script
+│   ├── demo_script_only.sh       # только --script
 │   ├── demo_both.sh              # --vfs и --script одновременно
 │   └── demo_script_notfound.sh   # несуществующий скрипт
 └── tests/
@@ -222,6 +223,157 @@ exit
 Все перечисленные комбинации собраны как исполняемые сценарии в
 каталоге `scenarios/`.
 
+## Этап 3. VFS (виртуальная файловая система)
+
+На этом этапе эмулятор научился работать с виртуальной файловой
+системой, которая хранится в ZIP-архиве и загружается целиком в
+память (без распаковки на диск).
+
+### Что добавлено
+
+- Модуль [src/vfs.py](src/vfs.py) — загрузка VFS из ZIP, представление
+  дерева в памяти, получение `motd`.
+- Поддержка приветствия `motd`: если в корне VFS есть файл с таким
+  именем, его содержимое печатается при старте.
+- Обработка ошибок загрузки VFS: сообщение `pandi: cannot load vfs ...`
+  с кодом возврата 1, без traceback.
+- Генератор ZIP-архивов [tools/make_vfs.py](tools/make_vfs.py) —
+  воспроизводимо создаёт все архивы в `vfs/`.
+- Четыре готовых VFS-архива в [vfs/](vfs/).
+- Стартовые скрипты этапа 3 и сценарии реальной ОС, покрывающие
+  минимальный, несколько файлов и глубокий (≥3 уровня) варианты.
+
+### Представление VFS
+
+Дерево из вложенных словарей:
+
+```python
+# директория: {"__dir": True, "children": {"name": node, ...}}
+# файл:       {"__dir": False, "data": b"bytes"}
+```
+
+Корень — директория. Промежуточные директории создаются
+автоматически для путей вида `a/b/c/file.txt`, даже если в ZIP нет
+отдельных записей для `a/` и `a/b/`.
+
+Все данные читаются через `zipfile.ZipFile.read(name)`; `extract`
+и `extractall` не используются.
+
+### VFS-архивы (`vfs/`)
+
+| Архив              | Содержимое                                                                   |
+|--------------------|------------------------------------------------------------------------------|
+| `vfs/minimal.zip`  | `hello.txt` — минимальный VFS из одного файла.                               |
+| `vfs/few.zip`      | `a.txt`, `b.txt`, `docs/readme.txt`, `docs/nested.txt`.                      |
+| `vfs/deep.zip`     | `motd`, `a/top.txt`, `a/b/other.txt`, `a/b/c/file.txt`, `a/b/c/other.txt`.    |
+| `vfs/motd.zip`     | `motd`, `readme.txt` — отдельный архив для проверки вывода приветствия.      |
+
+Пересоздать архивы:
+
+```bash
+python3 tools/make_vfs.py
+```
+
+### Стартовые скрипты этапа 3
+
+- [scripts/04_vfs_ok.pandi](scripts/04_vfs_ok.pandi) — все команды
+  выполняются успешно (`ls`, `cd`, `exit`, перебор аргументов).
+- [scripts/04_vfs_error.pandi](scripts/04_vfs_error.pandi) —
+  неизвестная команда посередине, выполнение останавливается.
+
+### Структура проекта (на данном этапе)
+
+```text
+.
+├── run.sh
+├── requirements.txt
+├── pytest.ini
+├── README.md
+├── .gitignore
+├── src/
+│   ├── main.py
+│   ├── cli.py
+│   ├── shell.py                  # + загрузка VFS и motd
+│   ├── script.py
+│   ├── vfs.py                    # НОВЫЙ: VfsError, load_vfs, get_motd
+│   └── commands/
+│       ├── __init__.py
+│       ├── errors.py
+│       ├── cmd_ls.py
+│       └── cmd_cd.py
+├── tools/
+│   └── make_vfs.py               # НОВЫЙ: генератор ZIP-архивов
+├── vfs/                          # НОВЫЙ: VFS-архивы
+│   ├── minimal.zip
+│   ├── few.zip
+│   ├── deep.zip
+│   └── motd.zip
+├── scripts/
+│   ├── 01_ok.pandi
+│   ├── 02_error.pandi
+│   ├── 03_comments.pandi
+│   ├── 04_vfs_ok.pandi           # НОВЫЙ
+│   └── 04_vfs_error.pandi        # НОВЫЙ
+├── scenarios/
+│   ├── demo_no_args.sh
+│   ├── demo_vfs_only.sh
+│   ├── demo_script_only.sh
+│   ├── demo_both.sh
+│   ├── demo_script_error.sh
+│   ├── demo_script_notfound.sh
+│   ├── vfs_minimal.sh            # НОВЫЙ
+│   ├── vfs_few.sh                # НОВЫЙ
+│   ├── vfs_deep.sh               # НОВЫЙ
+│   ├── vfs_motd.sh               # НОВЫЙ
+│   ├── vfs_notfound.sh           # НОВЫЙ
+│   └── vfs_bad.sh                # НОВЫЙ
+└── tests/
+    ├── test_commands.py
+    ├── test_parser.py
+    ├── test_manager.py
+    ├── test_config.py
+    ├── test_script.py
+    └── test_vfs.py               # НОВЫЙ
+```
+
+### Примеры запуска с VFS
+
+```bash
+# Пересоздать VFS-архивы
+python3 tools/make_vfs.py
+
+# Минимальный VFS + стартовый скрипт
+./run.sh --vfs vfs/minimal.zip --script scripts/04_vfs_ok.pandi
+
+# Несколько файлов
+./run.sh --vfs vfs/few.zip --script scripts/04_vfs_ok.pandi
+
+# Глубокий VFS (>=3 уровня) с motd
+./run.sh --vfs vfs/deep.zip --script scripts/04_vfs_ok.pandi
+
+# Только motd (интерактив)
+printf 'exit\n' | ./run.sh --vfs vfs/motd.zip
+
+# Ошибка: файл не найден (rc=1)
+./run.sh --vfs /no/such/file.zip; echo rc=$?
+
+# Ошибка: неверный формат (rc=1)
+echo "not a zip" > /tmp/bad.zip
+./run.sh --vfs /tmp/bad.zip; echo rc=$?
+```
+
+Готовые сценарии: `scenarios/vfs_minimal.sh`, `scenarios/vfs_few.sh`,
+`scenarios/vfs_deep.sh`, `scenarios/vfs_motd.sh`,
+`scenarios/vfs_notfound.sh`, `scenarios/vfs_bad.sh`.
+
+### О коммите ZIP-архивов
+
+Задание варианта 12 требует использовать ZIP-архив как источник
+VFS. Поэтому `vfs/*.zip` коммитятся в репозиторий как **данные
+задания**, а не как случайные бинарные артефакты. Для
+воспроизводимости рядом лежит генератор `tools/make_vfs.py`,
+который пересоздаёт все архивы одной командой.
+
 ## Тесты
 
 ### Запуск тестов
@@ -229,4 +381,4 @@ exit
 pytest -v
 ```
 
-Ожидается 30 пройденных тестов (этапы 1 и 2 вместе).
+Ожидается 43 пройденных теста (этапы 1, 2 и 3 вместе).
